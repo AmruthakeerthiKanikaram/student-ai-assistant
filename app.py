@@ -3,7 +3,7 @@ import streamlit as st
 from google import genai
 
 client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
-MODEL = "gemini-2.5-flash"
+MODEL = "gemini-3.8-flash"
 
 st.title("🎓 Student AI Assistant")
 feature = st.sidebar.selectbox(
