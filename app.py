@@ -3,12 +3,12 @@ import streamlit as st
 from google import genai
 
 client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
-MODEL = "gemini-3.5-flash-lite"
+MODEL = "gemini-2.5-flash"
 
 st.title("🎓 Student AI Assistant")
 feature = st.sidebar.selectbox(
     "Choose a feature",
-    ["AI Chatbot", "Summarize Notes", "Study Planner","Interview Preparation", "MCQ Generator", "Resume Analyzer", "Chat History"],
+    ["AI Chatbot", "Summarize Notes", "Study Planner","Interview Preparation", "MCQ Generator", "Resume Analyzer", "My History"],
 )
 
 def ask(prompt):
@@ -115,28 +115,13 @@ Resume:
             model="gemini-2.5-flash", contents=prompt
         )
         st.write(response.text)
-elif feature == "Chat History":
-    st.subheader("Chat History")
-
-    if "chat" not in st.session_state:
-        st.session_state.chat = client.chats.create(model="gemini-2.5-flash")
-        st.session_state.messages = []
-
-    for m in st.session_state.messages:
-        with st.chat_message(m["role"]):
-            st.write(m["text"])
-
-    user_msg = st.chat_input("Ask anything...")
-    if user_msg:
-        st.session_state.messages.append({"role": "user", "text": user_msg})
-        with st.chat_message("user"):
-            st.write(user_msg)
-        response = st.session_state.chat.send_message(user_msg)
-        st.session_state.messages.append({"role": "assistant", "text": response.text})
-        with st.chat_message("assistant"):
-            st.write(response.text)
-
-    if st.button("Clear chat"):
-        del st.session_state["chat"]
-        del st.session_state["messages"]
-        st.rerun()        
+elif feature == "My History":
+    st.subheader("My History")
+    if not st.session_state.history:
+        st.info("Nothing here yet. Use another feature first.")
+    for h in reversed(st.session_state.history):
+        with st.expander(h["question"][:80]):
+            st.write(h["answer"])
+    if st.button("Clear history"):
+        st.session_state.history = []
+        st.rerun()
