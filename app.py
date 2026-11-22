@@ -8,7 +8,7 @@ MODEL = "gemini-3.5-flash-lite"
 st.title("🎓 Student AI Assistant")
 feature = st.sidebar.selectbox(
     "Choose a feature",
-    ["AI Chatbot", "Summarize Notes", "Study Planner","Interview Preparation", "MCQ Generator"],
+    ["AI Chatbot", "Summarize Notes", "Study Planner","Interview Preparation", "MCQ Generator", "Resume Analyzer", "Chat History"],
 )
 
 def ask(prompt):
@@ -98,54 +98,45 @@ the same text as one of the options."""
                 st.subheader(f"Your score: {score} / {len(mcqs)}")
                 if score == len(mcqs):
                     st.balloons()
-elif feature == "Resume Analyzer":
-    st.header("📄 AI Resume Analyzer")
-    st.write("Upload your resume and receive AI-powered feedback.")
+elif option == "Resume Analyzer":
+    st.subheader("Resume Analyzer")
+    file = st.file_uploader("Upload your resume (PDF)", type=["pdf"])
+    job = st.text_input("Target job role (optional)")
+    if file and st.button("Analyze"):
+        from pypdf import PdfReader
+        text = "".join(p.extract_text() or "" for p in PdfReader(file).pages)
+        prompt = f"""Analyze this resume for the role: {job or 'general'}.
+Give: 1) strengths, 2) weaknesses, 3) missing skills,
+4) ATS keyword suggestions, 5) a score out of 10.
 
-    uploaded_file = st.file_uploader(
-        "Upload your resume (PDF)",
-        type=["pdf"]
-    )
+Resume:
+{text}"""
+        response = client.models.generate_content(
+            model="gemini-2.5-flash", contents=prompt
+        )
+        st.write(response.text)
+elif option == "Chat History":
+    st.subheader("Chat History")
 
-    if uploaded_file is not None:
-        if st.button("Analyze Resume"):
-            with st.spinner("Analyzing your resume..."):
-                try:
-                    pdf = PdfReader(io.BytesIO(uploaded_file.getvalue()))
-                    resume_text = ""
+    if "chat" not in st.session_state:
+        st.session_state.chat = client.chats.create(model="gemini-2.5-flash")
+        st.session_state.messages = []
 
-                    for page in pdf.pages:
-                        resume_text += page.extract_text() or ""
+    for m in st.session_state.messages:
+        with st.chat_message(m["role"]):
+            st.write(m["text"])
 
-                    if not resume_text.strip():
-                        st.error("No readable text found in this PDF.")
-                    else:
-                        prompt = f"""
-                        Analyze this student resume.
+    user_msg = st.chat_input("Ask anything...")
+    if user_msg:
+        st.session_state.messages.append({"role": "user", "text": user_msg})
+        with st.chat_message("user"):
+            st.write(user_msg)
+        response = st.session_state.chat.send_message(user_msg)
+        st.session_state.messages.append({"role": "assistant", "text": response.text})
+        with st.chat_message("assistant"):
+            st.write(response.text)
 
-                        Provide:
-                        1. Overall rating out of 10.
-                        2. Strengths.
-                        3. Weaknesses.
-                        4. Technical skills analysis.
-                        5. Project improvement suggestions.
-                        6. Education and internship feedback.
-                        7. Suggestions to improve the resume.
-
-                        Give simple and constructive feedback.
-                        Do not invent qualifications or experience.
-
-                        Resume:
-                        {resume_text}
-                        """
-
-                        response = client.models.generate_content(
-                            model=MODEL,
-                            contents=prompt
-                        )
-
-                        st.subheader("📊 Resume Analysis")
-                        st.markdown(response.text)
-
-                except Exception as e:
-                    st.error(f"Error analyzing resume: {e}")                    
+    if st.button("Clear chat"):
+        del st.session_state["chat"]
+        del st.session_state["messages"]
+        st.rerun()        
