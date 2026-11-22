@@ -98,7 +98,7 @@ the same text as one of the options."""
                 st.subheader(f"Your score: {score} / {len(mcqs)}")
                 if score == len(mcqs):
                     st.balloons()
-elif option == "Resume Analyzer":
+elif feature == "Resume Analyzer":
     st.subheader("Resume Analyzer")
     file = st.file_uploader("Upload your resume (PDF)", type=["pdf"])
     job = st.text_input("Target job role (optional)")
@@ -115,7 +115,7 @@ Resume:
             model="gemini-2.5-flash", contents=prompt
         )
         st.write(response.text)
-elif option == "Chat History":
+elif feature == "Chat History":
     st.subheader("Chat History")
 
     if "chat" not in st.session_state:
