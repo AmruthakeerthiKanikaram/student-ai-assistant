@@ -57,7 +57,7 @@ Return ONLY a JSON array, no other text. Each item must look like:
 Rules: exactly 4 options, no A/B/C/D prefixes, and "answer" must be exactly
 the same text as one of the options."""
         with st.spinner("Creating your quiz..."):
-            raw = ask()
+            raw = ask(prompt)
         if raw:
             try:
                 data = json.loads(re.search(r"\[.*\]", raw, re.S).group())
