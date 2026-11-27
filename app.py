@@ -44,62 +44,104 @@ elif feature == "Interview Preparation":
         ask(f"Prepare beginner-friendly interview questions and answers about {topic}")
 
 elif feature == "MCQ Generator":
+    st.title("📝 MCQ Generator")
+
     topic = st.text_input("Enter a topic")
-    c1, c2, c3 = st.columns(3)
-    n = c1.slider("Questions", 3, 10, 5)
-    level = c2.selectbox("Difficulty", ["Easy", "Medium", "Hard"])
-    fmt = c3.radio("Output", ["Quiz here", "PDF"])
 
-    if st.button("Generate MCQs") and topic:
-        prompt = f"""Create {n} {level} multiple choice questions about {topic}.
-Return ONLY a JSON array, no other text. Each item must look like:
-{{"question": "...", "options": ["...", "...", "...", "..."], "answer": "...", "explanation": "..."}}
-Rules: exactly 4 options, no A/B/C/D prefixes, and "answer" must be exactly
-the same text as one of the options."""
-        with st.spinner("Creating your quiz..."):
-            raw = ask(prompt, show=False)
-        if raw:
+    count = st.slider("Number of Questions", 1, 20, 5)
+
+    difficulty = st.selectbox(
+        "Difficulty",
+        ["Easy", "Medium", "Hard"]
+    )
+
+    if st.button("Generate MCQs"):
+        if topic:
+            prompt = f"""
+            Generate {count} multiple choice questions about {topic}.
+            Difficulty: {difficulty}.
+
+            Return ONLY valid JSON in this format:
+            [
+                {{
+                    "question": "Question here",
+                    "options": ["Option A", "Option B", "Option C", "Option D"],
+                    "answer": "Correct option",
+                    "explanation": "Explanation here"
+                }}
+            ]
+            """
+
+            with st.spinner("Generating questions..."):
+                response = client.models.generate_content(
+                    model=MODEL,
+                    contents=prompt
+                )
+
             try:
-                data = json.loads(re.search(r"\[.*\]", raw, re.S).group())
-                for k in [k for k in st.session_state if k.startswith("mcq_")]:
-                    del st.session_state[k]
-                st.session_state["mcqs"] = data
-                st.session_state["mcq_topic"] = topic
-            except Exception:
-                st.error("Could not read the questions. Please click Generate again.")
+                result = response.text.strip()
+                result = result.replace("```json", "").replace("```", "").strip()
 
-    mcqs = st.session_state.get("mcqs")
-    if mcqs:
-        if fmt == "PDF":
-            t = st.session_state.get("mcq_topic", "quiz")
-            st.success(f"{len(mcqs)} questions ready.")
-            st.download_button(
-                "📥 Download MCQs as PDF (with answer key)",
-                data=make_pdf(f"MCQs: {t}", mcq_to_text(mcqs)),
-                file_name=f"{t.replace(' ', '_')}_mcqs.pdf",
-                mime="application/pdf",
-            )
-            with st.expander("Preview questions"):
-                st.text(mcq_to_text(mcqs))
-        else:
-            with st.form("quiz"):
-                for i, m in enumerate(mcqs):
-                    st.radio(f"{i+1}. {m['question']}", m["options"],
-                             index=None, key=f"mcq_{i}")
-                submitted = st.form_submit_button("Submit Answers")
-            if submitted:
+                questions = json.loads(result)
+
+                st.session_state.questions = questions
+                st.session_state.submitted = False
+
+            except Exception:
+                st.error("Unable to generate quiz. Please try again.")
+
+    if "questions" in st.session_state:
+
+        st.subheader("Your Quiz")
+
+        with st.form("quiz_form"):
+
+            answers = {}
+
+            for i, q in enumerate(st.session_state.questions):
+
+                st.write(f"**Q{i+1}. {q['question']}**")
+
+                answers[i] = st.radio(
+                    "Select your answer:",
+                    q["options"],
+                    key=f"question_{i}",
+                    index=None
+                )
+
+                st.divider()
+
+            submitted = st.form_submit_button("Submit Quiz")
+
+        if submitted:
+            if any(answer is None for answer in answers.values()):
+                st.warning("Please answer all questions before submitting.")
+
+            else:
                 score = 0
-                for i, m in enumerate(mcqs):
-                    chosen = st.session_state.get(f"mcq_{i}")
-                    if chosen and chosen.strip() == m["answer"].strip():
+
+                for i, q in enumerate(st.session_state.questions):
+                    if answers[i] == q["answer"]:
                         score += 1
-                        st.success(f"Q{i+1}: Correct ✅")
-                    else:
-                        st.error(f"Q{i+1}: Wrong ❌  Correct answer: {m['answer']}")
-                    st.caption(f"💡 {m.get('explanation', '')}")
-                st.subheader(f"Your score: {score} / {len(mcqs)}")
-                if score == len(mcqs):
-                    st.balloons()
+
+                st.session_state.score = score
+                st.session_state.submitted = True
+
+        if st.session_state.get("submitted", False):
+
+            score = st.session_state.score
+            total = len(st.session_state.questions)
+
+            st.success(f"Your Score: {score}/{total}")
+
+            st.progress(score / total)
+
+            for i, q in enumerate(st.session_state.questions):
+
+                st.write(f"**Q{i+1}. {q['question']}**")
+                st.write(f"Your Answer: {answers[i] if 'answers' in locals() else 'See below'}")
+                st.write(f"Correct Answer: {q['answer']}")
+                st.info(q["explanation"])
 elif feature == "Resume Analyzer":
     st.subheader("Resume Analyzer")
     file = st.file_uploader("Upload your resume (PDF)", type=["pdf"])
