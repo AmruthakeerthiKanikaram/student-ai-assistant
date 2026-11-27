@@ -13,7 +13,7 @@ feature = st.sidebar.selectbox(
     ["AI Chatbot", "Summarize Notes", "Study Planner","Interview Preparation", "MCQ Generator", "Resume Analyzer", "My History"],
 )
 
-def ask(prompt):
+def ask(prompt, show=True):
     with st.spinner("Thinking..."):
         r = client.models.generate_content(model=MODEL, contents=prompt)
     st.write(r.text)
